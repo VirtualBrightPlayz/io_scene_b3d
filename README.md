@@ -2,6 +2,10 @@
 
 Blender Import-Export script for Blitz 3D .b3d files
 
+### VirtualBrightPlayz Fork Info
+
+This fork is for animations. In no way does it work yet.
+
 ## Download
 
 You may download plugin zip in the [releases](https://github.com/joric/io_scene_b3d/releases) section
