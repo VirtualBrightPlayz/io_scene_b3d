@@ -281,7 +281,22 @@ def import_bone(node, parent=None):
 
     return ob
 
-def import_node_recursive(node, parent=None):
+def import_keys_pre(node, ob, action):
+    ob.animation_data_create()
+    ob.animation_data.action = action
+
+    for i in range(len(node['keys'])):
+        keyframe = node['keys'][i]
+        
+        ob.rotation_quaternion = flip(keyframe.rotation)
+        ob.location = flip(keyframe.position)
+        ob.scale = flip(keyframe.scale)
+
+        ob.keyframe_insert(data_path='location', frame=keyframe.frame)
+        ob.keyframe_insert(data_path='rotation_quaternion', frame=keyframe.frame)
+        ob.keyframe_insert(data_path='scale', frame=keyframe.frame)
+
+def import_node_recursive(node, parent=None, action=None):
     ob = None
 
     if 'vertices' in node and 'faces' in node:
@@ -302,8 +317,91 @@ def import_node_recursive(node, parent=None):
         ob.scale = flip(node.scale)
         ob.location = flip(node.position)
 
+        # if 'keys' in node:
+            # import_keys_pre(node, ob, action)
+
     for x in node.nodes:
-        import_node_recursive(x, ob)
+        import_node_recursive(x, ob, action)
+
+def import_keys(node, ob, action):
+    ob.animation_data_create()
+    ob.animation_data.action = action
+
+    # thanks to https://blenderartists.org/t/2-5-set-bone-position-with-python/487288/2
+
+    bpy.ops.object.mode_set(mode='EDIT')
+    eb = ob.data.edit_bones[node.name]
+    ehead = eb.head
+    ebm = eb.matrix.to_quaternion().to_matrix().to_4x4()
+    ebmi = ebm.copy().inverted()
+    bpy.ops.object.mode_set(mode='POSE')
+
+    for i in range(len(node['keys'])):
+        keyframe = node['keys'][i]
+        bone2 = ob.pose.bones[node.name]
+        mat = ob.matrix_world.copy()
+        if bone2.bone:
+            # bone2.bone.use_local_location = True
+            # bone2.bone.use_inherit_rotation = True
+            # bone2.bone.use_relative_parent = True
+            # bone2.bone.inherit_scale = 'NONE'
+            pass
+        bone2.rotation_mode = 'QUATERNION'
+        # bone2.rotation_quaternion = flip(keyframe.rotation)
+        # bone2.scale = (keyframe.scale)
+        # bone2.location = flip(keyframe.position)
+        # bone2.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+
+        pos = mathutils.Matrix.Translation((keyframe.position))
+        rot = mathutils.Quaternion(flip(keyframe.rotation)).to_matrix().to_4x4()
+        # rot1 = mathutils.Quaternion(flip(keyframe.rotation))
+        # rot3 = bone.rotation_quaternion.rotation_difference(bone.parent.rotation_quaternion)
+        scl = mathutils.Matrix.Scale(1.0, 4, (keyframe.scale))
+        
+        # mat2 = pos @ bone2.matrix @ mat.inverted()
+
+        # bone2.matrix = (ebmi @ rot @ ebm).to_quaternion().to_matrix().to_4x4()
+        # bone2.location = ebmi @ (mathutils.Vector(flip(keyframe.position)) - ehead)
+        # bone2.location = ebmi @ (mathutils.Vector(flip(keyframe.position)) - ehead)
+        bone2.rotation_quaternion = (ebmi @ rot @ ebm).to_quaternion()
+        # if bone2.parent:
+            # bone2.rotation_quaternion = bone2.rotation_quaternion @ bone2.parent.rotation_quaternion
+
+        # mat = rot @ pos @ scl
+        
+        # rot2 = mat @ rot#(pos + bone.matrix.to_3x3().to_4x4())
+        # pos2 = mat @ pos
+        
+        # bone.matrix = ob.convert_space(pose_bone=bone, matrix=mat2, from_space='WORLD', to_space='POSE')
+        
+        # bone2.matrix.to_3x3().rotate(rot)
+
+        # bone2.matrix = pos @ rot @ bone2.matrix
+        # bone2.matrix = bone2.matrix @ rot @ pos
+        
+        # if bone.parent:
+            # bone.rotation_quaternion @ bone.parent.rotation_quaternion
+        # bone.scale = flip(keyframe.scale)
+        # bone.location = flip(keyframe.position)
+        # bone.translate(flip(keyframe.position))
+
+        # bones[\'' + node.name + '\'].
+        bone2.keyframe_insert(data_path='location', frame=keyframe.frame)
+        bone2.keyframe_insert(data_path='rotation_quaternion', frame=keyframe.frame)
+        bone2.keyframe_insert(data_path='scale', frame=keyframe.frame)
+        # return
+
+
+def import_keys_recursive(node, ob, action):
+    
+    if node.name and 'keys' in node and 'bones' in node:
+        try:
+            import_keys(node, ob, action)
+        except KeyError:
+            pass
+
+    for x in node.nodes:
+        import_keys_recursive(x, ob, action)
 
 def load_b3d(filepath,
              context,
@@ -351,8 +449,25 @@ def load_b3d(filepath,
     imported_armatures = []
     weighting = {}
 
-    import_node_recursive(data)
+    
+
+    action2 = bpy.data.actions.new('name')
+    action2.use_fake_user = True
+
+    import_node_recursive(data, action=action2)
     make_armatures()
+
+    for arm in bpy.data.armatures.values():
+        objname = arm.name
+        print(objname)
+        obj = bpy.data.objects[objname]
+
+        actionName = objname
+        action = bpy.data.actions.new(actionName)
+        action.use_fake_user = True
+
+        bpy.ops.object.mode_set(mode='POSE',toggle=False)
+        import_keys_recursive(data, obj, action)
 
 def load(operator,
          context,
@@ -374,7 +489,8 @@ def load(operator,
     return {'FINISHED'}
 
 #filepath = 'D:/Projects/github/io_scene_b3d/testing/gooey.b3d'
-filepath = 'C:/Games/GnomE/media/models/ded/ded.b3d'
+# filepath = 'C:/Games/GnomE/media/models/ded/ded.b3d'
+filepath = 'C:/Users/mcLC2/Documents/SCP - Containment Breach v1.3.11/GFX/npcs/106_2.b3d'
 #filepath = 'C:/Games/GnomE/media/models/gnome/model.b3d'
 #filepath = 'C:/Games/GnomE/media/levels/level1.b3d'
 #filepath = 'C:/Games/GnomE/media/models/gnome/go.b3d'
