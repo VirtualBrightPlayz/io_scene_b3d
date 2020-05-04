@@ -5,6 +5,8 @@ Blender Import-Export script for Blitz 3D .b3d files
 ### VirtualBrightPlayz Fork Info
 
 This fork is for animations. In no way does it work yet.
+EDIT 5/3/2020:
+I imported the animations to be bound to empty objects, but not bones.
 
 ## Download
 
