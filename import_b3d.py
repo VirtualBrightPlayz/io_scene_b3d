@@ -282,19 +282,23 @@ def import_bone(node, parent=None):
     return ob
 
 def import_keys_pre(node, ob, action):
-    ob.animation_data_create()
-    ob.animation_data.action = action
-
+    #ob.animation_data_create()
+    #ob.animation_data.action = action
+    #bpy.ops.object.mode_set(mode='OBJECT',toggle=False)
     for i in range(len(node['keys'])):
         keyframe = node['keys'][i]
         
+        ob.rotation_mode='QUATERNION'
         ob.rotation_quaternion = flip(keyframe.rotation)
         ob.location = flip(keyframe.position)
         ob.scale = flip(keyframe.scale)
 
+        #ob.matrix_world = ob.convert_space(matrix=ob.matrix_world, from_space='WORLD', to_space='LOCAL')
+        
         ob.keyframe_insert(data_path='location', frame=keyframe.frame)
         ob.keyframe_insert(data_path='rotation_quaternion', frame=keyframe.frame)
         ob.keyframe_insert(data_path='scale', frame=keyframe.frame)
+    #bpy.ops.object.mode_set(mode='EDIT',toggle=False)
 
 def import_node_recursive(node, parent=None, action=None):
     ob = None
@@ -312,13 +316,15 @@ def import_node_recursive(node, parent=None, action=None):
         if parent:
             ob.parent = parent
 
+        if 'keys' in node and 'bones' in node:
+            #pass
+            import_keys_pre(node, ob, action)
+
         ob.rotation_mode='QUATERNION'
         ob.rotation_quaternion = flip(node.rotation)
         ob.scale = flip(node.scale)
         ob.location = flip(node.position)
-
-        # if 'keys' in node:
-            # import_keys_pre(node, ob, action)
+        #print("default")
 
     for x in node.nodes:
         import_node_recursive(x, ob, action)
@@ -346,13 +352,14 @@ def import_keys(node, ob, action):
             # bone2.bone.use_relative_parent = True
             # bone2.bone.inherit_scale = 'NONE'
             pass
-        bone2.rotation_mode = 'QUATERNION'
-        # bone2.rotation_quaternion = flip(keyframe.rotation)
-        # bone2.scale = (keyframe.scale)
-        # bone2.location = flip(keyframe.position)
+        #bone2.rotation_mode = 'QUATERNION'
+        #bone2.rotation_quaternion = flip(keyframe.rotation)
+        #bone2.scale = (keyframe.scale)
+        #bone2.location = flip(keyframe.position)
         # bone2.rotation_quaternion = (1.0, 0.0, 0.0, 0.0)
+        #bone2.matrix = ob.convert_space(pose_bone=bone2, matrix=bone2.matrix, from_space='LOCAL', to_space='POSE')
 
-        pos = mathutils.Matrix.Translation((keyframe.position))
+        pos = mathutils.Matrix.Translation(flip(keyframe.position))
         rot = mathutils.Quaternion(flip(keyframe.rotation)).to_matrix().to_4x4()
         # rot1 = mathutils.Quaternion(flip(keyframe.rotation))
         # rot3 = bone.rotation_quaternion.rotation_difference(bone.parent.rotation_quaternion)
@@ -363,7 +370,11 @@ def import_keys(node, ob, action):
         # bone2.matrix = (ebmi @ rot @ ebm).to_quaternion().to_matrix().to_4x4()
         # bone2.location = ebmi @ (mathutils.Vector(flip(keyframe.position)) - ehead)
         # bone2.location = ebmi @ (mathutils.Vector(flip(keyframe.position)) - ehead)
-        bone2.rotation_quaternion = (ebmi @ rot @ ebm).to_quaternion()
+        
+        # bone2.location = (ebmi @ pos @ ebm).to_translation()
+        #bone2.matrix = ob.convert_space(pose_bone=bone2, matrix=rot, from_space='LOCAL', to_space='POSE')
+        # bone2.scale = scl.to_scale()
+        # bone2.rotation_quaternion = (ebmi @ rot @ ebm).to_quaternion()
         # if bone2.parent:
             # bone2.rotation_quaternion = bone2.rotation_quaternion @ bone2.parent.rotation_quaternion
 
@@ -455,6 +466,7 @@ def load_b3d(filepath,
     action2.use_fake_user = True
 
     import_node_recursive(data, action=action2)
+    return #uncomment for animations to be deleted and armature to be made.
     make_armatures()
 
     for arm in bpy.data.armatures.values():
@@ -467,7 +479,7 @@ def load_b3d(filepath,
         action.use_fake_user = True
 
         bpy.ops.object.mode_set(mode='POSE',toggle=False)
-        import_keys_recursive(data, obj, action)
+        #import_keys_recursive(data, obj, action)
 
 def load(operator,
          context,
@@ -490,7 +502,8 @@ def load(operator,
 
 #filepath = 'D:/Projects/github/io_scene_b3d/testing/gooey.b3d'
 # filepath = 'C:/Games/GnomE/media/models/ded/ded.b3d'
-filepath = 'C:/Users/mcLC2/Documents/SCP - Containment Breach v1.3.11/GFX/npcs/106_2.b3d'
+#filepath = 'C:/Users/mcLC2/Documents/SCP - Containment Breach v1.3.11/GFX/npcs/106_2.b3d'
+filepath = 'E:/Games/SCPCB1.3.11/GFX/npcs/106_2.b3d'
 #filepath = 'C:/Games/GnomE/media/models/gnome/model.b3d'
 #filepath = 'C:/Games/GnomE/media/levels/level1.b3d'
 #filepath = 'C:/Games/GnomE/media/models/gnome/go.b3d'
